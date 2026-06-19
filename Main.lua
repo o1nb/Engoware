@@ -352,7 +352,7 @@ if engoware then
     return warn("[engoware] already loaded.")
 end
 
-entity = funcs:run(funcs:require("https://raw.githubusercontent.com/7GrandDadPGN/VapeV4ForRoblox/main/Libraries/entityHandler.lua", true, true))
+entity = funcs:run(funcs:require("https://raw.githubusercontent.com/7GrandDadPGN/VapeV4ForRoblox/refs/heads/main/libraries/entity.lua", true, true))
 entity.fullEntityRefresh()
 GuiLibrary = funcs:run(funcs:require("engoware/GuiLibrary.lua"))
 
