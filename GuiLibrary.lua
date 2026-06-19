@@ -10,13 +10,23 @@ local utils = {}; GuiLibrary.utils = utils do
         end
 
         local newUrl = (bypass and "https://raw.githubusercontent.com/o1nb/" or "https://raw.githubusercontent.com/o1nb/engoware/main/") .. url:gsub("engoware/", ""):gsub("engoware\\", "")
-        local response = request({
-            Url = newUrl,
-            Method = "GET",
-        })
-        if response.StatusCode == 200 then
+        if not request then
+            warn("[engoware] no request function available for: " .. tostring(newUrl))
+            return nil
+        end
+
+        local success, response = pcall(function()
+            return request({
+                Url = newUrl,
+                Method = "GET",
+            })
+        end)
+
+        if success and response and response.StatusCode == 200 and response.Body then
             return response.Body
         end
+
+        warn("[engoware] failed to fetch " .. tostring(newUrl) .. " status: " .. tostring(response and response.StatusCode))
     end
 
     function utils:getColorOfObject(object)
@@ -185,7 +195,58 @@ coroutine.wrap(function()
     until false
 end)()
 
-local SignalLib = loadstring(utils:require("roblox/main/SignalLib.lua", true))()
+local signalSource = utils:require("roblox/main/SignalLib.lua", true)
+local SignalLib
+
+if signalSource then
+    local signalLoader, signalErr = loadstring(signalSource)
+    if signalLoader then
+        local ok, result = pcall(signalLoader)
+        if ok and type(result) == "table" and result.new then
+            SignalLib = result
+        else
+            warn("[engoware] SignalLib returned invalid result, using fallback signal.")
+        end
+    else
+        warn("[engoware] SignalLib loadstring failed: " .. tostring(signalErr))
+    end
+else
+    warn("[engoware] SignalLib.lua failed to download/read, using fallback signal.")
+end
+
+if not SignalLib then
+    SignalLib = {}
+    function SignalLib.new()
+        local signal = {Connections = {}}
+
+        function signal:Connect(func)
+            table.insert(self.Connections, func)
+            local connected = true
+            return {
+                Disconnect = function()
+                    if not connected then return end
+                    connected = false
+                    local index = table.find(self.Connections, func)
+                    if index then
+                        table.remove(self.Connections, index)
+                    end
+                end
+            }
+        end
+
+        function signal:Fire(...)
+            for _, func in next, self.Connections do
+                task.spawn(func, ...)
+            end
+        end
+
+        function signal:Destroy()
+            table.clear(self.Connections)
+        end
+
+        return signal
+    end
+end
 local ColorUpdate, ButtonUpdate = SignalLib.new(), SignalLib.new()
 GuiLibrary.ColorUpdate = ColorUpdate
 GuiLibrary.ButtonUpdate = ButtonUpdate
